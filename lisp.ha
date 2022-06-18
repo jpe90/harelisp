@@ -51,7 +51,8 @@ type Macro = struct {
 	env: *Environment,
 };
 
-type Obj = (*Value | *Cell | *Symbol | Primitive | *Function | *Macro | Nil | Cparen | Dot | True | EOF);
+type Obj = (*Value | *Cell | *Symbol | Primitive | *Function | *Macro | Nil
+	| Cparen | Dot | True | EOF);
 
 // ===========================================================================
 //                                Error Types
@@ -66,8 +67,10 @@ type unbound_variable = !void;
 type mismatched_args = !void;
 type readerror = !(unclosedparens | straydot | unknown);
 type scanerror = !(utf8::invalid | io::error);
-type invocation_error = !(malformed | unbound_variable | bad_args);
+type invocation_error = !(malformed | unbound_variable | bad_args
+	| div_by_zero);
 type notdigit = void;
+type div_by_zero = !void;
 
 // ===========================================================================
 //                              Global Variables
@@ -334,7 +337,7 @@ fn read() (Obj | readerror) = {
 						return read_symbol(res);
 				};
 			};
-			if (ascii::isalpha(res) || strings::contains("+=!@#$%^&*",res))
+			if (ascii::isalpha(res) || strings::contains("+=!@#$%^&*/<>",res))
 				return read_symbol(res);
 			return unknown;
 		case io::EOF =>
@@ -398,7 +401,8 @@ fn print_vars_in_env(env: (*Environment | Nil)) void = {
 	};
 };
 
-fn push_env(env: *Environment, vars: List, values: List) (*Environment | mismatched_args) = {
+fn push_env(env: *Environment, vars: List, values: List) (*Environment
+	| mismatched_args) = {
 	if(list_length(vars) != list_length(values))
 		return mismatched_args;
 	let map: Obj = Nil;
@@ -478,7 +482,8 @@ fn macroexpand(env: *Environment, obj: Obj) Obj = {
 	return progn(newenv,body);
 };
 
-fn handle_defun(env: *Environment, list: List, fntype: Fntype) (Obj | invocation_error) = {
+fn handle_defun(env: *Environment, list: List, fntype: Fntype) (Obj |
+	invocation_error) = {
 	if(list is Nil)
 		return malformed;
 	let list_cell = list as *Cell;
@@ -530,7 +535,8 @@ fn apply(env: *Environment, function: (Primitive | *Function), args: List) Obj =
 };
 
 
-fn handle_function(env: *Environment, list: List, fntype: Fntype) (Obj | invocation_error) = {
+fn handle_function(env: *Environment, list: List, fntype: Fntype) (Obj |
+	invocation_error) = {
 	if(!((list as *Cell).car is *Cell) || !((list as *Cell).cdr is *Cell)) {
 		fmt::println("lambda is malformed")!;
 		return malformed;
@@ -626,6 +632,7 @@ fn prim_if(env: *Environment, list: List) (Obj | invocation_error) = {
 	};
 };
 
+
 fn prim_lambda(env: *Environment, list: List) (Obj | invocation_error) = {
 	return handle_function(env,list,Fntype::FUNCTION);
 };
@@ -682,11 +689,24 @@ fn prim_quote(env: *Environment, list: List) (Obj | invocation_error) = {
 
 fn prim_plus(env: *Environment, list: List) (Obj | invocation_error) = {
 	let sum: int = 0;
-	for(let args= eval_list(env,list); !(args is Nil); args = (args as *Cell).cdr as List) {
+	for(let args= eval_list(env,list); !(args is Nil); args = (args as *Cell).cdr
+		as List) {
 		if(!((args as *Cell).car is *Value)) {
 			return malformed;
 		};
 		sum = sum + *((args as *Cell).car as *Value): int;
+	};
+	return alloc(sum);
+};
+
+fn prim_times(env: *Environment, list: List) (Obj | invocation_error) = {
+	let sum: int = 1;
+	for(let args= eval_list(env,list); !(args is Nil); args = (args as *Cell).cdr
+		as List) {
+		if(!((args as *Cell).car is *Value)) {
+			return malformed;
+		};
+		sum = sum * *((args as *Cell).car as *Value): int;
 	};
 	return alloc(sum);
 };
@@ -706,6 +726,60 @@ fn prim_minus(env: *Environment, list: List) (Obj | invocation_error) = {
 		r = r - next_r;
 	};
 	return alloc(r);
+};
+
+fn prim_div(env: *Environment, list: List) (Obj | invocation_error) = {
+	let args = eval_list(env,list);
+	if(!((args as *Cell).car is *Value)) {
+		return malformed;
+	};
+	let r = *((args as *Cell).car as *Value): int;
+	args = (args as *Cell).cdr as List;
+	for(!(args is Nil); args = (args as *Cell).cdr as List) {
+		if(!((args as *Cell).car is *Value)) {
+			return malformed;
+		};
+		const next_r = *((args as *Cell).car as *Value): int;
+		// fmt::println(next_r)!;
+		if (next_r == 0)
+			return div_by_zero;
+		r = r / next_r;
+	};
+	return alloc(r);
+};
+
+fn prim_lt(env: *Environment, list: List) (Obj | invocation_error) = {
+	let args = eval_list(env,list);
+	if(list_length(args) != 2)
+		return malformed;
+	const x = (args as *Cell).car;
+	const y_cell = (args as *Cell).cdr;
+	const y = (y_cell as *Cell).car;
+	if(!(x is *Value && y is *Value))
+		return malformed;
+	const x_num = *(x as *Value): int;
+	const y_num = *(y as *Value): int;
+	if(x_num < y_num)
+		return True
+	else
+		return Nil;
+};
+
+fn prim_gt(env: *Environment, list: List) (Obj | invocation_error) = {
+	let args = eval_list(env,list);
+	if(list_length(args) != 2)
+		return malformed;
+	const x = (args as *Cell).car;
+	const y_cell = (args as *Cell).cdr;
+	const y = (y_cell as *Cell).car;
+	if(!(x is *Value && y is *Value))
+		return malformed;
+	const x_num = *(x as *Value): int;
+	const y_num = *(y as *Value): int;
+	if(x_num > y_num)
+		return True
+	else
+		return Nil;
 };
 
 fn prim_num_eq(env: *Environment, list: List) (Obj | invocation_error) = {
@@ -753,6 +827,10 @@ fn define_primitives(env: *Environment) void = {
 	add_primitive(env, "define", &prim_define);
 	add_primitive(env, "+", &prim_plus);
 	add_primitive(env, "-", &prim_minus);
+	add_primitive(env, "*", &prim_times);
+	add_primitive(env, "/", &prim_div);
+	add_primitive(env, "<", &prim_lt);
+	add_primitive(env, ">", &prim_gt);
 	add_primitive(env, "lambda", &prim_lambda);
 	add_primitive(env, "list", &prim_list);
 	add_primitive(env, "setq", &prim_setq);

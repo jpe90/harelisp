@@ -1,4 +1,4 @@
-# WIP lisp written in Hare.
+# WIP lisp written in Hare (for fun)
 
 - [x] cons
 - [x] car
@@ -7,10 +7,10 @@
 - [x] define
 - [x] \+
 - [x] \-
-- [ ] \*
-- [ ] /
-- [ ] >
-- [ ] <
+- [x] \*
+- [x] /
+- [x] >
+- [x] <
 - [x] lambda
 - [x] list
 - [x] setq
@@ -21,6 +21,7 @@
 - [x] defun
 - [ ] gensym
 - [ ] garbage collection
+- [ ] rational numbers
 
 ## Usage
 
