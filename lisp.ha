@@ -699,6 +699,14 @@ fn prim_plus(env: *Environment, list: List) (Obj | invocation_error) = {
 	return alloc(sum);
 };
 
+fn prim_gensym(env: *Environment, list: List) (Obj | invocation_error) = {
+	static let count = 0;
+	let buf: [10]u8 = [0 ... ];
+	fmt::bsprintf(buf, "G__{}", count);
+	count += 1;
+	return alloc(strings::fromutf8(buf));
+};
+
 fn prim_times(env: *Environment, list: List) (Obj | invocation_error) = {
 	let sum: int = 1;
 	for(let args= eval_list(env,list); !(args is Nil); args = (args as *Cell).cdr
@@ -839,6 +847,7 @@ fn define_primitives(env: *Environment) void = {
 	add_primitive(env, "=", &prim_num_eq);
 	add_primitive(env, "defun", &prim_defun);
 	add_primitive(env, "defmacro", &prim_defmacro);
+	add_primitive(env, "gensym", &prim_gensym);
 };
 
 // ===========================================================================

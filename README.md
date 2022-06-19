@@ -19,7 +19,7 @@
 - [x] =
 - [x] defmacro
 - [x] defun
-- [ ] gensym
+- [x] gensym
 - [ ] garbage collection
 - [ ] rational numbers
 
